@@ -7,12 +7,6 @@
 #	https://github.com/openshift/source-to-image/blob/master/docs/builder_image.md
 #
 
-export TOMCAT_DIR=/opt/tomcat
-export OPENJDK=11
-	echo "···································································································"
-	echo "MARTIN FABRIZZIO VILCHE - https://github.com/mvilche"
-	echo "···································································································"
-
 
 if [ -z "$TIMEZONE" ]; then
 	echo "···································································································"
