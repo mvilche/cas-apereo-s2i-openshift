@@ -1,0 +1,422 @@
+    ##comienzo Template
+  apiVersion: v1
+  kind: Template
+  metadata:
+    name: tomcat-s2i-mvilche
+    labels:
+      template: wildlfy-s2i-mvilche
+      autor: "Martin_Fabrizzio_Vilche"
+    annotations:
+      openshift.io/display-name: "tomcat-s2i-mvilche"
+      iconClass: "icon-tomcat"
+      description: >-
+        tomcat s2i images + openjdk + Maven + jolokia
+      openshift.io/provider-display-name: "Martin Fabrizzio Vilche"
+      openshift.io/documentation-url: "https://github.com/mvilche/tomcat-s2i.git"
+      openshift.io/support-url: "https://github.com/mvilche/tomcat-s2i.git"
+  message: >-
+    Eliga la version de tomcat y Openjdk que desea utilizar
+    La conexion a la base de datos podra ser realizada en el context.xml disponible en los configmaps
+
+  objects:
+
+  - apiVersion: v1
+    kind: DeploymentConfig
+    metadata:
+      labels:
+        app: "${APP_NAME}"
+      name: "${APP_NAME}"
+    spec:
+      replicas: 1
+      revisionHistoryLimit: 10
+      selector:
+        app: ${APP_NAME}
+        deploymentconfig: ${APP_NAME}
+      strategy:
+        activeDeadlineSeconds: 21600
+        resources: {}
+        rollingParams:
+          intervalSeconds: 1
+          maxSurge: 25%
+          maxUnavailable: 25%
+          timeoutSeconds: 600
+          updatePeriodSeconds: 1
+        type: Rolling
+      template:
+        metadata:
+          labels:
+            app: ${APP_NAME}
+            deploymentconfig: ${APP_NAME}
+        spec:
+          containers:
+            - image: "${APP_NAME}-s2i:latest"
+              env:
+                - name: TIMEZONE
+                  value: America/Montevideo
+                - name: CUSTOM_JAVA_OPTS
+                  value:             
+              imagePullPolicy: Always
+              name: ${APP_NAME}
+              ports:
+                - containerPort: 8080
+                  protocol: TCP
+                  name: http
+                - containerPort: 8778
+                  protocolo: TCP
+                  name: jolokia
+                - containerPort: 8443
+                  protocolo: TCP
+                  name: https                  
+              livenessProbe:
+                failureThreshold: 3
+                initialDelaySeconds: 120
+                periodSeconds: 30
+                successThreshold: 1
+                httpGet:
+                  port: 8080
+                  path: /
+                timeoutSeconds: 15
+              readinessProbe:
+                failureThreshold: 3
+                initialDelaySeconds: 120
+                periodSeconds: 30
+                successThreshold: 1
+                httpGet:
+                  port: 8080
+                  path: /
+                timeoutSeconds: 15
+              resources:
+                requests:
+                  cpu: 256m
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+              terminationMessagePath: /dev/termination-log
+              terminationMessagePolicy: File
+              volumeMounts:
+                - mountPath: /etc/cas/config/cas.properties
+                  subPath: cas.properties
+                  name: configmap-1
+                - mountPath: /etc/cas/config/log4j2.xml
+                  subPath: log4j2.xml
+                  name: configmap-2                              
+          dnsPolicy: ClusterFirst
+          restartPolicy: Always
+          schedulerName: default-scheduler
+          terminationGracePeriodSeconds: 10
+          volumes:
+            - configMap:
+                items:
+                  - key: cas.properties
+                    path: cas.properties
+                name: ${APP_NAME}-configmap
+              name: configmap-1
+            - configMap:
+                items:
+                  - key: log4j2.xml
+                    path: log4j2.xml
+                name: ${APP_NAME}-configmap
+              name: configmap-2                       
+      test: false
+      triggers:
+        - type: ConfigChange
+        - imageChangeParams:
+            automatic: true
+            containerNames:
+              - ${APP_NAME}
+            from:
+              kind: ImageStreamTag
+              name: "${APP_NAME}-s2i:latest"
+          type: ImageChange
+
+  - apiVersion: v1
+    kind: BuildConfig
+    metadata:
+      labels:
+        app: ${APP_NAME}
+      name: ${APP_NAME}-s2i
+    spec:
+      completionDeadlineSeconds: 1800
+      failedBuildsHistoryLimit: 5
+      nodeSelector: null
+      output:
+        to:
+          kind: ImageStreamTag
+          name: ${APP_NAME}-s2i:latest
+      postCommit: {}
+      resources: {}
+      runPolicy: Serial
+      source:
+        git:
+          uri: ${REPO_GIT}
+          ref: ${BRANCH_GIT}
+        type: Git
+      strategy:
+        sourceStrategy:
+          incremental: true
+          from:
+            kind: ImageStreamTag
+            name: cas-gradle-s2i:latest
+        type: Source
+      successfulBuildsHistoryLimit: 5
+      triggers:
+        - type: ConfigChange
+        - imageChange:
+            from:
+              kind: "ImageStreamTag"
+              name: "cas-s2i:latest"
+
+
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      labels:
+        app: ${APP_NAME}
+      name: ${APP_NAME}
+    spec:
+      ports:
+        - name: http
+          port: 8080
+          protocol: TCP
+          targetPort: 8080
+        - name: jolokia
+          port: 8778
+          protocol: TCP
+          targetPort: 8778
+        - name: ajp
+          port: 8009
+          protocol: TCP
+          targetPort: 8009
+        - name: https
+          port: 8443
+          protocol: TCP
+          targetPort: 8443          
+      selector:
+        app: ${APP_NAME}
+        deploymentconfig: ${APP_NAME}
+      sessionAffinity: None
+      type: ClusterIP
+
+
+  - apiVersion: v1
+    kind: Route
+    metadata:
+      labels:
+        app: ${APP_NAME}
+      name: ${APP_NAME}-http
+    spec:
+      port:
+        targetPort: http
+      to:
+        kind: Service
+        name: ${APP_NAME}
+        weight: 100
+      wildcardPolicy: None
+
+
+  - apiVersion: v1
+    kind: ImageStream
+    metadata:
+      labels:
+        app: ${APP_NAME}
+      name: ${APP_NAME}
+    spec: {}
+
+  - apiVersion: v1
+    kind: ImageStream
+    metadata:
+      labels:
+        app: ${APP_NAME}
+      name: ${APP_NAME}-s2i
+    spec: {}
+
+
+######
+  - apiVersion: v1
+    kind: BuildConfig
+    metadata:
+      labels:
+        app:  ${APP_NAME}
+        build: cas-gradle-s2i
+      name: cas-gradle-s2i
+    spec:
+      failedBuildsHistoryLimit: 5
+      nodeSelector: null
+      output:
+        to:
+          kind: ImageStreamTag
+          name: 'cas-gradle-s2i:latest'
+      postCommit: {}
+      resources: {}
+      runPolicy: Serial
+      source:
+        contextDir: openjdk11
+        git:
+          ref: master
+          uri: 'https://github.com/mvilche/cas-apereo-s2i-openshift.git'
+        type: Git
+      strategy:
+        dockerStrategy:
+          dockerfilePath: Dockerfile.jdk
+        type: Docker
+      successfulBuildsHistoryLimit: 5
+      triggers:
+        - type: ConfigChange
+
+
+  - apiVersion: v1
+    kind: ImageStream
+    metadata:
+      labels:
+        app: ${APP_NAME}
+      name: cas-gradle-s2i
+    spec: {}
+
+
+  - apiVersion: v1
+    data:
+      log4j2.xml: |-
+              <?xml version="1.0" encoding="UTF-8" ?>
+        <!-- Specify the refresh internal in seconds. -->
+        <Configuration monitorInterval="5" packages="org.apereo.cas.logging">
+            <Properties>
+                <Property name="baseDir">/etc/cas/logs</Property>
+                <Property name="cas.log.level">info</Property>
+                <Property name="spring.webflow.log.level">warn</Property>
+                <Property name="spring.security.log.level">info</Property>
+                <Property name="spring.cloud.log.level">warn</Property>
+                <Property name="spring.boot.admin.log.level">debug</Property>
+                <Property name="spring.web.log.level">warn</Property>
+                <Property name="spring.boot.log.level">warn</Property>
+                <Property name="ldap.log.level">warn</Property>
+                <Property name="pac4j.log.level">warn</Property>
+                <Property name="opensaml.log.level">warn</Property>
+                <Property name="hazelcast.log.level">warn</Property>
+            </Properties>
+            <Appenders>
+                <Console name="console" target="SYSTEM_OUT">
+                    <PatternLayout pattern="%highlight{%d %p [%c] - &lt;%m&gt;}%n"/>
+                </Console>
+                <RollingFile name="file" fileName="${baseDir}/cas.log" append="true"
+                            filePattern="${baseDir}/cas-%d{yyyy-MM-dd-HH}-%i.log">
+                    <PatternLayout pattern="%d %p [%c] - &lt;%m&gt;%n"/>
+                    <Policies>
+                        <OnStartupTriggeringPolicy />
+                        <SizeBasedTriggeringPolicy size="10 MB"/>
+                        <TimeBasedTriggeringPolicy />
+                    </Policies>
+                </RollingFile>
+                <RollingFile name="auditlogfile" fileName="${baseDir}/cas_audit.log" append="true"
+                            filePattern="${baseDir}/cas_audit-%d{yyyy-MM-dd-HH}-%i.log">
+                    <PatternLayout pattern="%d %p [%c] - %m%n"/>
+                    <Policies>
+                        <OnStartupTriggeringPolicy />
+                        <SizeBasedTriggeringPolicy size="10 MB"/>
+                        <TimeBasedTriggeringPolicy />
+                    </Policies>
+                </RollingFile>
+
+                <CasAppender name="casAudit">
+                    <AppenderRef ref="auditlogfile" />
+                </CasAppender>
+                <CasAppender name="casFile">
+                    <AppenderRef ref="file" />
+                </CasAppender>
+                <CasAppender name="casConsole">
+                    <AppenderRef ref="console" />
+                </CasAppender>
+            </Appenders>
+            <Loggers>
+                <!-- If adding a Logger with level set higher than warn, make category as selective as possible -->
+                <!-- Loggers inherit appenders from Root Logger unless additivity is false -->
+                <AsyncLogger name="org.apereo" level="${sys:cas.log.level}" includeLocation="true"/>
+                <AsyncLogger name="org.apereo.services.persondir" level="${sys:cas.log.level}" includeLocation="true"/>
+                <AsyncLogger name="org.apereo.cas.web.flow" level="${sys:cas.log.level}" includeLocation="true"/>
+                <AsyncLogger name="org.apereo.spring" level="${sys:cas.log.level}" includeLocation="true"/>
+
+                <AsyncLogger name="org.apache" level="warn" />
+                <AsyncLogger name="org.apache.http" level="error" />
+
+                <AsyncLogger name="org.springframework.boot" level="${sys:spring.boot.log.level" includeLocation="true"/>
+                <AsyncLogger name="org.springframework.boot.context.embedded" level="info" includeLocation="true" />
+                <AsyncLogger name="org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration"
+                level="${sys:spring.security.log.level}" includeLocation="true" />
+                <AsyncLogger name="org.springframework.boot.autoconfigure.security" level="${sys:spring.security.log.level}" includeLocation="true"/>
+                <AsyncLogger name="org.springframework.boot.devtools" level="off" includeLocation="true"/>
+
+                <AsyncLogger name="org.springframework" level="warn" includeLocation="true" />
+                <AsyncLogger name="org.springframework.webflow" level="${sys:spring.webflow.log.level}" includeLocation="true"/>
+                <AsyncLogger name="org.springframework.aop" level="warn" includeLocation="true" />
+                <AsyncLogger name="org.springframework.web" level="warn" includeLocation="true"/>
+                <AsyncLogger name="org.springframework.session" level="warn" includeLocation="true"/>
+                <AsyncLogger name="org.springframework.scheduling" level="info" includeLocation="true"/>
+                <AsyncLogger name="org.springframework.cloud.vault" level="warn" includeLocation="true" />
+                <AsyncLogger name="org.springframework.web.client" level="warn" includeLocation="true" />
+                <AsyncLogger name="org.springframework.security" level="${sys:spring.security.log.level}" includeLocation="true"/>
+                <AsyncLogger name="org.springframework.cloud" level="${sys:spring.cloud.log.level}" includeLocation="true"/>
+                <AsyncLogger name="org.springframework.amqp" level="error" />
+                <AsyncLogger name="org.springframework.integration" level="warn" includeLocation="true"/>
+                <AsyncLogger name="org.springframework.messaging" level="warn" includeLocation="true"/>
+                <AsyncLogger name="org.springframework.web" level="${sys:spring.web.log.level}" includeLocation="true"/>
+                <AsyncLogger name="org.springframework.orm.jpa" level="warn" includeLocation="true"/>
+                <AsyncLogger name="org.springframework.scheduling" level="warn" includeLocation="true"/>
+                <AsyncLogger name="org.springframework.context.annotation" level="off" includeLocation="true"/>
+                <AsyncLogger name="org.springframework.web.socket" level="warn" includeLocation="true"/>
+
+                <AsyncLogger name="org.thymeleaf" level="warn" includeLocation="true"/>
+
+                <AsyncLogger name="org.pac4j" level="${sys:pac4j.log.level}" includeLocation="true"/>
+
+                <AsyncLogger name="org.opensaml" level="${sys:opensaml.log.level}" includeLocation="true"/>
+                <AsyncLogger name="PROTOCOL_MESSAGE" level="${sys:opensaml.log.level}" includeLocation="true" />
+
+                <AsyncLogger name="net.sf.ehcache" level="warn" includeLocation="true"/>
+                <AsyncLogger name="com.couchbase" level="warn" includeLocation="true"/>
+                <AsyncLogger name="de.codecentric" level="${sys:spring.boot.admin.log.level}" includeLocation="true"/>
+                <AsyncLogger name="net.jradius" level="warn" includeLocation="true" />
+                <AsyncLogger name="org.openid4java" level="warn" includeLocation="true" />
+                <AsyncLogger name="org.ldaptive" level="${sys:ldap.log.level}" includeLocation="true"/>
+                <AsyncLogger name="com.hazelcast" level="${sys:hazelcast.log.level}" includeLocation="true"/>
+
+                <!-- Log audit to all root appenders, and also to audit log (additivity is not false) -->
+                <AsyncLogger name="org.apereo.inspektr.audit.support" level="info" includeLocation="true" >
+                    <AppenderRef ref="casAudit"/>
+                </AsyncLogger>
+
+                <!-- All Loggers inherit appenders specified here, unless additivity="false" on the Logger -->
+                <AsyncRoot level="warn">
+                    <AppenderRef ref="casFile"/>
+                    <!-- 
+                        For deployment to an application server running as service, 
+                        delete the casConsole appender below
+                    -->
+                    <AppenderRef ref="casConsole"/>
+                </AsyncRoot>
+            </Loggers>
+        </Configuration>
+      cas.properties: |-        
+        cas.server.name=http://localhost:8080
+        cas.server.prefix=${cas.server.name}/cas
+        logging.config: file:/etc/cas/config/log4j2.xml
+        # cas.authn.accept.users=
+    kind: ConfigMap
+    metadata:
+      name: ${APP_NAME}-configmap
+
+######
+
+
+  parameters:
+    - name: APP_NAME
+      displayName: Nombre del microservicio
+      value: 'cas'
+      required: true
+    - name: REPO_GIT
+      displayName: Repositorio git donde se encuentra la aplicacion
+      value: ""
+      required: true
+    - name: BRANCH_GIT
+      displayName: Nombre del branch del repositorio
+      value: ""
+      required: true

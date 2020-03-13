@@ -1,0 +1,44 @@
+FROM alpine:3.11
+
+ENV JDK_VERSION=openjdk11-jdk \
+GRADLE_VERSION=gradle-6.2.2-bin.zip
+
+LABEL autor="Martin Vilche <mfvilche@gmail.com>" \
+      io.k8s.description="Compilador de aplicaciones java con maven s2i" \
+      io.k8s.display-name="Java Applications" \
+      io.openshift.tags="builder,java,maven" \
+      io.openshift.expose-services="8080,8009,8443" \
+      org.jboss.deployments-dir="/opt/tomcat/webapps" \
+      io.openshift.s2i.scripts-url="image:///usr/libexec/s2i"
+
+RUN apk add --update --no-cache $JDK_VERSION curl wget bash git unzip findutils busybox-extras msttcorefonts-installer fontconfig  which openssh shadow busybox-suid coreutils tzdata
+
+WORKDIR /opt 
+
+RUN mkdir -p /opt/tomcat /opt/config /opt/maven && rm -rf /etc/localtime && \
+wget -q https://services.gradle.org/distributions/$GRADLE_VERSION && \
+unzip $GRADLE_VERSION && mv gradle* gradle && rm -rf *.zip \
+ln -s /opt/gradle/bin/gradle /usr/bin/gradle && \
+    update-ms-fonts && \
+    fc-cache -f
+
+COPY contrib/jolokia-jvm-1.6.2-agent.jar /usr/libexec/s2i/jolokia-jvm-1.6.2-agent.jar
+
+COPY s2i/bin/ /usr/libexec/s2i
+
+RUN mkdir -p /etc/cas/logs /etc/cas/saml /etc/cas/services /etc/cas/config && touch /etc/localtime /etc/timezone && adduser -D -u 1001 s2i && usermod -aG 0 s2i && \
+chown -R 1001 /opt /home/s2i /usr/libexec/s2i /etc/localtime /etc/timezone /etc/cas  && \
+chgrp -R 0 /opt /home/s2i /usr/libexec/s2i /etc/localtime /etc/timezone /etc/cas  && \
+chmod -R g=u /opt /usr/libexec/s2i /etc/localtime /etc/timezone /etc/cas && \
+chmod +x /usr/libexec/s2i/*
+
+WORKDIR /opt/app
+
+ENV HOME /home/s2i
+
+USER 1001:0
+
+EXPOSE 8080 8443 8009
+
+CMD ["/usr/libexec/s2i/usage"]
+
