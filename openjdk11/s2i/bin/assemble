@@ -10,7 +10,7 @@
 set -e
 
 export JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=90.0 -Dfile.encoding=UTF8 -XX:+ExitOnOutOfMemoryError"
-
+export JAVA_HOME=/usr/lib/jvm/default-jvm
 shopt -u dotglob
 
 
@@ -61,7 +61,7 @@ EOF
 fi
 
 echo "---> COMPILANDO CODIGO FUENTE..."
-cd /opt/app && gradle clean build
+cd /opt/app-src && gradle clean build
 
 ERR=$?
     if [ $ERR -ne 0 ]; then

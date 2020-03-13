@@ -26,7 +26,7 @@ COPY contrib/jolokia-jvm-1.6.2-agent.jar /usr/libexec/s2i/jolokia-jvm-1.6.2-agen
 
 COPY s2i/bin/ /usr/libexec/s2i
 
-RUN mkdir -p /etc/cas/logs /etc/cas/saml /etc/cas/services /etc/cas/config && touch /etc/localtime /etc/timezone && adduser -D -u 1001 s2i && usermod -aG 0 s2i && \
+RUN mkdir -p /etc/cas/logs /etc/cas/saml /etc/cas/services /etc/cas/config /home/s2i/.gradle && touch /etc/localtime /etc/timezone && adduser -D -u 1001 s2i && usermod -aG 0 s2i && \
 chown -R 1001 /opt /home/s2i /usr/libexec/s2i /etc/localtime /etc/timezone /etc/cas  && \
 chgrp -R 0 /opt /home/s2i /usr/libexec/s2i /etc/localtime /etc/timezone /etc/cas  && \
 chmod -R g=u /opt /usr/libexec/s2i /etc/localtime /etc/timezone /etc/cas && \
