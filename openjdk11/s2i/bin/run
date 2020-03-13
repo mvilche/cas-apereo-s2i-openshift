@@ -27,7 +27,7 @@ else
 	echo $TIMEZONE > /etc/timezone
 fi
 
-export JAVA_OPTS="$JAVA_OPTS -javaagent:/usr/libexec/s2i/jolokia-jvm-1.6.2-agent.jar=host=0.0.0.0,protocol=https,keystore=$TOMCAT_DIR/jolokia.jks,keystorePassword=password -Djava.awt.headless=true -XX:+UseContainerSupport -XX:MaxRAMPercentage=90.0 -Dfile.encoding=UTF8 -XX:+ExitOnOutOfMemoryError -Djava.net.preferIPv4Stack=true"
+export JAVA_OPTS="-Djava.awt.headless=true -XX:+UseContainerSupport -XX:MaxRAMPercentage=90.0 -Dfile.encoding=UTF8 -XX:+ExitOnOutOfMemoryError -Djava.net.preferIPv4Stack=true"
 
 if [ ! -z "$CUSTOM_JAVA_OPTS" ]; then
 	echo "···································································································"
@@ -40,5 +40,4 @@ fi
 	echo "INICIANDO APP..."
 	echo "···································································································"
 
-keytool -genkey -keyalg RSA -alias selfsigned -keystore $TOMCAT_DIR/jolokia.jks -storepass password -validity 360 -keysize 2048 -dname "cn=jolokia, ou=jolokia, o=jolokia, c=jolokia" &> /dev/null
 exec java -jar /opt/app/cas.war $JAVA_OPTS
