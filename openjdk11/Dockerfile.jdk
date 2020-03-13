@@ -15,7 +15,7 @@ RUN apk add --update --no-cache $JDK_VERSION curl wget bash git unzip findutils 
 
 WORKDIR /opt 
 
-RUN mkdir -p /opt/tomcat /opt/config /opt/maven && rm -rf /etc/localtime && \
+RUN rm -rf /etc/localtime && \
 wget -q https://services.gradle.org/distributions/$GRADLE_VERSION && \
 unzip $GRADLE_VERSION && mv gradle* gradle && rm -rf *.zip \
 ln -s /opt/gradle/bin/gradle /usr/bin/gradle && \
