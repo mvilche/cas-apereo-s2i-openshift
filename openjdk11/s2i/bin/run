@@ -34,4 +34,4 @@ fi
 	echo "INICIANDO APP..."
 	echo "···································································································"
 
-exec java -jar /opt/app/cas.war $JAVA_OPTS
+exec java -jar /opt/app/ROOT.war $JAVA_OPTS
