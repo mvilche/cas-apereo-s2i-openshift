@@ -17,7 +17,7 @@ WORKDIR /opt
 
 RUN rm -rf /etc/localtime && \
 wget -q https://services.gradle.org/distributions/$GRADLE_VERSION && \
-unzip $GRADLE_VERSION && mv gradle* gradle && rm -rf *.zip \
+unzip $GRADLE_VERSION && mv gradle-* gradle && rm -rf *.zip \
 ln -s /opt/gradle/bin/gradle /usr/bin/gradle && \
     update-ms-fonts && \
     fc-cache -f
