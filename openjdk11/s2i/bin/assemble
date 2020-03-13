@@ -71,7 +71,7 @@ exit $ERR
 fi
 
 echo "---> COPIANDO APLICACION GENERADA AL DIRECTORIO DE DEPLOY..."
-cd /opt/app-src && find . -name '*.war' | xargs cp -t /opt/app  && echo "APP INSTALADA!"
+find /opt/app-src -name '*.war' | xargs cp -t /opt/app  && echo "APP INSTALADA!"
 
 ls -1 /opt/app
 
