@@ -1,0 +1,102 @@
+#!/bin/bash -e
+#
+# S2I assemble script for the 's2i-maven-java' image.
+# The 'assemble' script builds your application source so that it is ready to run.
+#
+# For more information refer to the documentation:
+#	https://github.com/openshift/source-to-image/blob/master/docs/builder_image.md
+#
+
+set -e
+
+export JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=90.0 -Dfile.encoding=UTF8 -XX:+ExitOnOutOfMemoryError"
+export JAVA_HOME=/usr/lib/jvm/default-jvm
+shopt -u dotglob
+
+
+if [[ "$1" == "-h" ]]; then
+	exec /usr/libexec/s2i/usage
+fi
+
+if [ ! -f /tmp/src/build.gradle ]; then
+  echo "FATAL - No build.gradle found"
+  if [ ! -f /tmp/src/pom.xml ]; then
+    echo "FATAL - No pom.xml found"
+  exit 1
+  fi
+fi
+
+
+if [ -d /tmp/artifacts/.gradle ]; then
+  echo "---> Restoring build artifacts..."
+  mv /tmp/artifacts/.gradle /home/s2i/
+  rm -rf /tmp/artifacts
+fi
+
+if [ -d /tmp/artifacts/.m2 ]; then
+  echo "---> Restoring build artifacts..."
+  mv /tmp/artifacts/.m2 /home/s2i/
+  rm -rf /tmp/artifacts
+fi
+
+echo "---> INSTALANDO CODIGO FUENTE..."
+mkdir /opt/app-src
+cp -Rf /tmp/src/* /opt/app-src/
+rm -rf /tmp/src
+
+
+if [ -z "$NEXUS_MIRROR_URL" ]; then
+echo "NO NEXUS_MIRROR_URL ENCONTRADO"
+else
+echo "NEXUS_MIRROR_URL ENCONTRADO - AGREGANDO REPOSITORIO"
+
+if [ ! -d /home/s2i/.m2 ]; then
+  mkdir /home/s2i/.m2
+  touch /home/s2i/.m2/settings.xml
+fi
+cat << EOF > /home/s2i/.m2/settings.xml
+<?xml version="1.0" encoding="UTF-8"?>
+<settings>
+  <mirrors>
+    <mirror>
+      <id>central</id>
+      <name>central</name>
+      <url>$NEXUS_MIRROR_URL</url>
+      <mirrorOf>*</mirrorOf>
+    </mirror>
+  </mirrors>
+</settings>
+EOF
+fi
+
+if [ -f /opt/app-src/build.gradle ]; then
+echo "---> COMPILANDO CODIGO FUENTE..."
+cd /opt/app-src && gradle clean build
+
+ERR=$?
+    if [ $ERR -ne 0 ]; then
+echo "LA COMPILACION SALIO CON CODIGO DE ERROR $ERR"
+exit $ERR
+fi
+fi
+
+if [ -f /opt/app-src/pom.xml ]; then
+echo "---> COMPILANDO CODIGO FUENTE..."
+cd /opt/app-src && mvn clean package
+
+ERR=$?
+    if [ $ERR -ne 0 ]; then
+echo "LA COMPILACION SALIO CON CODIGO DE ERROR $ERR"
+exit $ERR
+fi
+fi
+echo "---> COPIANDO APLICACION GENERADA AL DIRECTORIO DE DEPLOY..."
+
+find /opt/app-src -name '*.war' | xargs cp -t /opt/app  && echo "APP INSTALADA!"
+
+mv /opt/app/*.war /opt/app/ROOT.war
+
+ls -1 /opt/app
+
+/usr/libexec/s2i/fix /opt/app-src
+/usr/libexec/s2i/fix /opt/app
