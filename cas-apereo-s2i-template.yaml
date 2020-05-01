@@ -151,7 +151,7 @@
           incremental: true
           from:
             kind: ImageStreamTag
-            name: cas-gradle-s2i:latest
+            name: cas-src-s2i:latest
         type: Source
       successfulBuildsHistoryLimit: 5
       triggers:
@@ -220,20 +220,20 @@
     metadata:
       labels:
         app:  ${APP_NAME}
-        build: cas-gradle-s2i
-      name: cas-gradle-s2i
+        build: cas-src-s2i
+      name: cas-src-s2i
     spec:
       failedBuildsHistoryLimit: 5
       nodeSelector: null
       output:
         to:
           kind: ImageStreamTag
-          name: 'cas-gradle-s2i:latest'
+          name: 'cas-src-s2i:latest'
       postCommit: {}
       resources: {}
       runPolicy: Serial
       source:
-        contextDir: openjdk11
+        contextDir: openjdk${JDK_VERSION}
         git:
           ref: master
           uri: 'https://github.com/mvilche/cas-apereo-s2i-openshift.git'
@@ -252,7 +252,7 @@
     metadata:
       labels:
         app: ${APP_NAME}
-      name: cas-gradle-s2i
+      name: cas-src-s2i
     spec: {}
 
 
@@ -422,6 +422,9 @@
       displayName: Nombre del microservicio
       value: 'cas'
       required: true
+    - name: JDK_VERSION
+      displayName: Version jdk
+      value: "11"      
     - name: REPO_GIT
       displayName: Repositorio git donde se encuentra la aplicacion
       value: ""
